@@ -10,23 +10,24 @@ namespace HidApiAdapter
     {
         private const int MARSHALED_STRING_MAX_LEN = 1024 / 2;
 
-        private const int BUFFER_DEFAULT_SIZE = 1024;
+        private const int BUFFER_DEFAULT_SIZE = 64;
 
         private readonly hid_device_info m_DeviceInfo;
-        private IntPtr m_DevicePtr = IntPtr.Zero;
+																 
 
+        public IntPtr DevicePtr { get; private set; } = IntPtr.Zero;
         private HidDevice() { }
 
         internal HidDevice(hid_device_info deviceInfo, IntPtr devicePtr)
         {
             m_DeviceInfo = deviceInfo;
-            m_DevicePtr = devicePtr;
+            DevicePtr = devicePtr;
         }
 
         /// <summary>
         /// Can instance interact with HID device 
         /// </summary>
-        public bool IsValid => m_DevicePtr != IntPtr.Zero;
+        public bool IsValid => DevicePtr != IntPtr.Zero;
 
         private bool m_IsConnected;
         /// <summary>
@@ -50,12 +51,12 @@ namespace HidApiAdapter
         /// <returns></returns>
         public bool Connect()
         {
-            if (m_DevicePtr == IntPtr.Zero)
+            if (DevicePtr == IntPtr.Zero)
                 return false;
 
-            m_DevicePtr = HidApi.hid_open_path(m_DeviceInfo.path);
+            DevicePtr = HidApi.hid_open_path(m_DeviceInfo.path);
 
-            if(m_DevicePtr != IntPtr.Zero)
+            if(DevicePtr != IntPtr.Zero)
                 m_IsConnected = true;
 
             return true;
@@ -67,10 +68,10 @@ namespace HidApiAdapter
         /// <returns></returns>
         public bool Disconnect()
         {
-            if (m_DevicePtr == IntPtr.Zero)
+            if (DevicePtr == IntPtr.Zero)
                 return false;
 
-            HidApi.hid_close(m_DevicePtr);
+            HidApi.hid_close(DevicePtr);
 
             m_IsConnected = false;
             return true;
@@ -80,29 +81,54 @@ namespace HidApiAdapter
 
         public int Write(byte[] bytes)
         {
-            if (m_DevicePtr == IntPtr.Zero)
+            if (DevicePtr == IntPtr.Zero)
                 return 0;
 
             if (bytes == null || bytes.Length == 0)
                 return 0;
 
-            if (m_WriteBuffer.Length <= bytes.Length)
-                Array.Resize(ref m_WriteBuffer, bytes.Length + 2);
+            //if (m_WriteBuffer.Length <= bytes.Length)
+            //    Array.Resize(ref m_WriteBuffer, bytes.Length + 2);
 
             //TODO fix this for other OSs
             //hidapi for windows has problem - first byte must be 0 also array length shuold be increased for 1
-            Array.Copy(bytes, 0, m_WriteBuffer, 1, bytes.Length);
+            //Array.Copy(bytes, 0, m_WriteBuffer, 1, bytes.Length);
 
-            return HidApi.hid_write(m_DevicePtr, m_WriteBuffer, Convert.ToUInt32(bytes.Length + 1));
+            return HidApi.hid_write(DevicePtr, bytes, Convert.ToUInt32(bytes.Length ));
         }
         
         public int Read(byte[] buff, int len)
         {
-            if (m_DevicePtr == IntPtr.Zero)
+            if (DevicePtr == IntPtr.Zero)
                 return 0;
 
-            return HidApi.hid_read(m_DevicePtr, buff, Convert.ToUInt32(len));
+            return HidApi.hid_read(DevicePtr, buff, Convert.ToUInt32(len));
         }
+
+        public int Read(byte[] buff, int len,int timeout)
+        {
+            if (DevicePtr == IntPtr.Zero)
+                return 0;
+
+            return HidApi.hid_read_timeout(DevicePtr, buff, Convert.ToUInt32(len),timeout);
+        }
+        /// <summary>
+        /// Set the device handle to be non-blocking. 
+        /// In non-blocking mode calls to hid_read() will return immediately with a value of 0 if there is no data to be read. 
+        /// In blocking mode, hid_read() will wait(block) until there is data to read before returning.
+        /// Nonblocking can be turned on and off at any time 
+        /// </summary>
+        /// <param name="nonblocking">Enable(1) or not(0) the nonblocking reads</param>
+        /// <returns></returns>
+        public int SetNonblocking(int nonblocking)
+        {
+            //if (DevicePtr == IntPtr.Zero)
+            //    return 0;
+
+
+            return HidApi.hid_set_nonblocking(DevicePtr,  nonblocking);
+        }
+
 
         #region device info
 
@@ -115,7 +141,7 @@ namespace HidApiAdapter
         public string SerialNumber()
         {
             m_DeviceInfoBuffer.Clear();
-            HidApi.hid_get_serial_number_string(m_DevicePtr, m_DeviceInfoBuffer, MARSHALED_STRING_MAX_LEN);
+            HidApi.hid_get_serial_number_string(DevicePtr, m_DeviceInfoBuffer, MARSHALED_STRING_MAX_LEN);
 
             return m_DeviceInfoBuffer.ToString();
         }
@@ -128,7 +154,7 @@ namespace HidApiAdapter
         public string Manufacturer()
         {
             m_DeviceInfoBuffer.Clear();
-            HidApi.hid_get_manufacturer_string(m_DevicePtr, m_DeviceInfoBuffer, MARSHALED_STRING_MAX_LEN);
+            HidApi.hid_get_manufacturer_string(DevicePtr, m_DeviceInfoBuffer, MARSHALED_STRING_MAX_LEN);
 
             return m_DeviceInfoBuffer.ToString();
         }
@@ -140,7 +166,7 @@ namespace HidApiAdapter
         public string Product()
         {
             m_DeviceInfoBuffer.Clear();
-            HidApi.hid_get_product_string(m_DevicePtr, m_DeviceInfoBuffer, MARSHALED_STRING_MAX_LEN);
+            HidApi.hid_get_product_string(DevicePtr, m_DeviceInfoBuffer, MARSHALED_STRING_MAX_LEN);
 
             return m_DeviceInfoBuffer.ToString();
         }
@@ -155,7 +181,7 @@ namespace HidApiAdapter
             int counter = 0;
 
             m_DeviceInfoBuffer.Clear();
-            while (HidApi.hid_get_indexed_string(m_DevicePtr, counter, m_DeviceInfoBuffer, MARSHALED_STRING_MAX_LEN) == 0 && counter++ < maxStringNum)
+            while (HidApi.hid_get_indexed_string(DevicePtr, counter, m_DeviceInfoBuffer, MARSHALED_STRING_MAX_LEN) == 0 && counter++ < maxStringNum)
             {
                 yield return m_DeviceInfoBuffer.ToString();
                 m_DeviceInfoBuffer.Clear();
@@ -171,7 +197,7 @@ namespace HidApiAdapter
         {
             m_DeviceInfoBuffer.Clear();
 
-            var res = HidApi.hid_get_indexed_string(m_DevicePtr, index, m_DeviceInfoBuffer, MARSHALED_STRING_MAX_LEN);
+            var res = HidApi.hid_get_indexed_string(DevicePtr, index, m_DeviceInfoBuffer, MARSHALED_STRING_MAX_LEN);
 
             return res == 0 ? m_DeviceInfo.ToString() : null;
         }
