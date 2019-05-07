@@ -222,7 +222,7 @@ namespace HidApiAdapter
         /// <param name="device">A device handle returned from hid_open()</param>
         /// <param name="nonblock">Enable(1) or not(0) the nonblocking reads</param>
         /// <returns>This function returns 0 on success and -1 on error</returns>
-        public int hid_set_nonblocking(IntPtr device, int nonblock)
+        public static int hid_set_nonblocking(IntPtr device, int nonblock)
         {
             if (m_OsType == OsType.Win32)
                 return HidApiWin32.hid_set_nonblocking(device, nonblock);
