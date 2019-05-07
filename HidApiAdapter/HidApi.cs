@@ -225,11 +225,12 @@ namespace HidApiAdapter
         public static int hid_set_nonblocking(IntPtr device, int nonblock)
         {
             if (m_OsType == OsType.Win32)
-                return HidApiWin32.hid_set_nonblocking(device, nonblock);
+                return HidApiWin32.hid_set_nonblocking(device,  nonblock);
             else if (m_OsType == OsType.Win64)
                 return HidApiWin64.hid_set_nonblocking(device, nonblock);
             else
                 throw new NotSupportedException(CANNOT_RESOLVE_OS_TYPE_MESSAGE);
+
         }
 
         /// <summary>
